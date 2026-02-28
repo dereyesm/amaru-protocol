@@ -1,0 +1,10 @@
+{"ts":"2026-01-15","src":"finance","dst":"*","type":"state","msg":"monthly_report:revenue_up_12pct. expenses_stable. runway_18mo","ttl":7,"ack":["finance","engineering","operations"]}
+{"ts":"2026-01-15","src":"finance","dst":"*","type":"alert","msg":"vendor_invoice_due_jan20. amount_4500usd. approve_before_friday","ttl":5,"ack":["operations"]}
+{"ts":"2026-01-15","src":"engineering","dst":"*","type":"state","msg":"sprint3_active_jan13-jan27. 12_tickets_in_progress. 3_blocked","ttl":7,"ack":["engineering","operations"]}
+{"ts":"2026-01-15","src":"engineering","dst":"operations","type":"alert","msg":"api_migration_blocked_by_vendor_auth. need_ops_contact_vendor","ttl":5,"ack":[]}
+{"ts":"2026-01-15","src":"operations","dst":"engineering","type":"request","msg":"quarterly_infra_costs_needed_for_board_deck","ttl":7,"ack":["engineering"]}
+{"ts":"2026-01-16","src":"engineering","dst":"finance","type":"data_cross","msg":"infra_costs_q4:hosting_2400usd+ci_800usd+monitoring_350usd@aws_billing","ttl":7,"ack":["finance"]}
+{"ts":"2026-01-16","src":"controller","dst":"engineering","type":"dispatch","msg":"incident_response:api_p1_down. assign:oncall-lead,devops. priority:critical","ttl":3,"ack":["engineering"]}
+{"ts":"2026-01-16","src":"engineering","dst":"*","type":"event","msg":"api_incident_resolved_45min. root_cause:expired_cert. postmortem_scheduled_jan18","ttl":3,"ack":["engineering","operations"]}
+{"ts":"2026-01-17","src":"controller","dst":"*","type":"event","msg":"hermes_instance_synced. all_headers_current. 0_stale_messages","ttl":3,"ack":["controller"]}
+{"ts":"2026-01-17","src":"operations","dst":"finance","type":"data_cross","msg":"PROJ:q1_contractor_budget_estimate_15000usd@resource_plan_v2","ttl":7,"ack":[]}

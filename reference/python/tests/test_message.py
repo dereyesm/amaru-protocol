@@ -1,0 +1,401 @@
+"""Tests for HERMES message validation and bus operations."""
+
+import json
+import os
+import tempfile
+from datetime import date, timedelta
+from pathlib import Path
+
+import pytest
+
+from hermes.message import (
+    MAX_MSG_LENGTH,
+    Message,
+    ValidationError,
+    create_message,
+    validate_message,
+    validate_namespace,
+)
+from hermes.bus import (
+    ack_message,
+    archive_expired,
+    filter_for_namespace,
+    find_expired,
+    find_stale,
+    read_bus,
+    write_message,
+)
+from hermes.sync import FinAction, SynResult, fin, syn, syn_report
+
+
+# ─── Namespace Validation ───────────────────────────────────────────
+
+
+class TestValidateNamespace:
+    def test_valid_namespace(self):
+        validate_namespace("engineering")
+        validate_namespace("my-team")
+        validate_namespace("a")
+        validate_namespace("team-alpha-01")
+
+    def test_broadcast_allowed(self):
+        validate_namespace("*", allow_broadcast=True)
+
+    def test_broadcast_not_allowed(self):
+        with pytest.raises(ValidationError):
+            validate_namespace("*", allow_broadcast=False)
+
+    def test_uppercase_rejected(self):
+        with pytest.raises(ValidationError):
+            validate_namespace("Engineering")
+
+    def test_spaces_rejected(self):
+        with pytest.raises(ValidationError):
+            validate_namespace("my team")
+
+    def test_empty_rejected(self):
+        with pytest.raises(ValidationError):
+            validate_namespace("")
+
+    def test_starts_with_number_rejected(self):
+        with pytest.raises(ValidationError):
+            validate_namespace("1team")
+
+    def test_too_long_rejected(self):
+        with pytest.raises(ValidationError):
+            validate_namespace("a" * 64)
+
+    def test_max_length_accepted(self):
+        validate_namespace("a" * 63)
+
+
+# ─── Message Validation ─────────────────────────────────────────────
+
+
+def _valid_data(**overrides) -> dict:
+    """Return a valid message dict with optional overrides."""
+    base = {
+        "ts": "2026-01-15",
+        "src": "engineering",
+        "dst": "*",
+        "type": "state",
+        "msg": "sprint_started",
+        "ttl": 7,
+        "ack": [],
+    }
+    base.update(overrides)
+    return base
+
+
+class TestValidateMessage:
+    def test_valid_message(self):
+        msg = validate_message(_valid_data())
+        assert msg.src == "engineering"
+        assert msg.dst == "*"
+        assert msg.type == "state"
+        assert msg.ts == date(2026, 1, 15)
+
+    def test_missing_field(self):
+        data = _valid_data()
+        del data["ts"]
+        with pytest.raises(ValidationError, match="Missing required fields"):
+            validate_message(data)
+
+    def test_invalid_date(self):
+        with pytest.raises(ValidationError, match="Invalid date"):
+            validate_message(_valid_data(ts="not-a-date"))
+
+    def test_invalid_src(self):
+        with pytest.raises(ValidationError, match="Invalid namespace"):
+            validate_message(_valid_data(src="BAD NAME"))
+
+    def test_src_cannot_be_broadcast(self):
+        with pytest.raises(ValidationError, match="Invalid namespace"):
+            validate_message(_valid_data(src="*"))
+
+    def test_src_equals_dst(self):
+        with pytest.raises(ValidationError, match="must differ"):
+            validate_message(_valid_data(src="eng", dst="eng"))
+
+    def test_broadcast_dst_ok(self):
+        msg = validate_message(_valid_data(dst="*"))
+        assert msg.dst == "*"
+
+    def test_invalid_type(self):
+        with pytest.raises(ValidationError, match="Invalid message type"):
+            validate_message(_valid_data(type="invalid"))
+
+    def test_all_valid_types(self):
+        for t in ["state", "alert", "event", "request", "data_cross", "dispatch", "dojo_event"]:
+            msg = validate_message(_valid_data(type=t))
+            assert msg.type == t
+
+    def test_empty_msg(self):
+        with pytest.raises(ValidationError, match="must not be empty"):
+            validate_message(_valid_data(msg=""))
+
+    def test_msg_too_long(self):
+        with pytest.raises(ValidationError, match="exceeds"):
+            validate_message(_valid_data(msg="x" * (MAX_MSG_LENGTH + 1)))
+
+    def test_msg_max_length_ok(self):
+        msg = validate_message(_valid_data(msg="x" * MAX_MSG_LENGTH))
+        assert len(msg.msg) == MAX_MSG_LENGTH
+
+    def test_control_chars_rejected(self):
+        with pytest.raises(ValidationError, match="control characters"):
+            validate_message(_valid_data(msg="hello\x00world"))
+
+    def test_negative_ttl(self):
+        with pytest.raises(ValidationError, match="must be positive"):
+            validate_message(_valid_data(ttl=0))
+
+    def test_boolean_ttl_rejected(self):
+        with pytest.raises(ValidationError, match="must be an integer"):
+            validate_message(_valid_data(ttl=True))
+
+    def test_duplicate_ack_rejected(self):
+        with pytest.raises(ValidationError, match="Duplicate"):
+            validate_message(_valid_data(ack=["eng", "eng"]))
+
+    def test_invalid_ack_namespace(self):
+        with pytest.raises(ValidationError, match="Invalid namespace"):
+            validate_message(_valid_data(ack=["INVALID"]))
+
+
+# ─── Message Creation ────────────────────────────────────────────────
+
+
+class TestCreateMessage:
+    def test_defaults(self):
+        msg = create_message(
+            src="engineering", dst="*", type="alert", msg="system_down"
+        )
+        assert msg.ts == date.today()
+        assert msg.ttl == 5  # alert default
+        assert msg.ack == []
+
+    def test_custom_ttl(self):
+        msg = create_message(
+            src="engineering", dst="finance", type="data_cross",
+            msg="costs_q4_2400usd@aws", ttl=14,
+        )
+        assert msg.ttl == 14
+
+    def test_custom_date(self):
+        msg = create_message(
+            src="ops", dst="*", type="event", msg="deploy_complete",
+            ts=date(2026, 6, 1),
+        )
+        assert msg.ts == date(2026, 6, 1)
+
+
+# ─── Serialization ──────────────────────────────────────────────────
+
+
+class TestSerialization:
+    def test_to_dict_roundtrip(self):
+        msg = create_message(src="eng", dst="*", type="state", msg="ok")
+        d = msg.to_dict()
+        msg2 = validate_message(d)
+        assert msg.src == msg2.src
+        assert msg.msg == msg2.msg
+
+    def test_to_jsonl(self):
+        msg = create_message(src="eng", dst="*", type="state", msg="ok")
+        line = msg.to_jsonl()
+        data = json.loads(line)
+        assert data["src"] == "eng"
+        assert "\n" not in line
+
+
+# ─── Bus Operations ─────────────────────────────────────────────────
+
+
+@pytest.fixture
+def bus_dir(tmp_path):
+    """Create a temporary directory with bus and archive files."""
+    bus = tmp_path / "bus.jsonl"
+    archive = tmp_path / "bus-archive.jsonl"
+    bus.touch()
+    archive.touch()
+    return tmp_path
+
+
+class TestBusOperations:
+    def test_read_empty_bus(self, bus_dir):
+        msgs = read_bus(bus_dir / "bus.jsonl")
+        assert msgs == []
+
+    def test_write_and_read(self, bus_dir):
+        bus = bus_dir / "bus.jsonl"
+        msg = create_message(src="eng", dst="*", type="state", msg="hello")
+        write_message(bus, msg)
+        msgs = read_bus(bus)
+        assert len(msgs) == 1
+        assert msgs[0].msg == "hello"
+
+    def test_filter_unicast(self, bus_dir):
+        msgs = [
+            create_message(src="eng", dst="finance", type="data_cross", msg="costs"),
+            create_message(src="eng", dst="ops", type="request", msg="need_info"),
+            create_message(src="eng", dst="*", type="state", msg="sprint_done"),
+        ]
+        filtered = filter_for_namespace(msgs, "finance")
+        assert len(filtered) == 2  # unicast to finance + broadcast
+
+    def test_filter_excludes_acked(self):
+        msg = Message(
+            ts=date.today(), src="eng", dst="*", type="state",
+            msg="done", ttl=7, ack=["finance"],
+        )
+        filtered = filter_for_namespace([msg], "finance")
+        assert len(filtered) == 0
+
+    def test_find_stale(self):
+        old = Message(
+            ts=date.today() - timedelta(days=5),
+            src="eng", dst="*", type="alert", msg="old_alert",
+            ttl=7, ack=[],
+        )
+        recent = Message(
+            ts=date.today(),
+            src="eng", dst="*", type="state", msg="new",
+            ttl=7, ack=[],
+        )
+        stale = find_stale([old, recent], threshold_days=3)
+        assert len(stale) == 1
+        assert stale[0].msg == "old_alert"
+
+    def test_find_expired(self):
+        expired = Message(
+            ts=date.today() - timedelta(days=10),
+            src="eng", dst="*", type="event", msg="old_event",
+            ttl=3, ack=[],
+        )
+        active = Message(
+            ts=date.today(),
+            src="eng", dst="*", type="state", msg="current",
+            ttl=7, ack=[],
+        )
+        result = find_expired([expired, active])
+        assert len(result) == 1
+        assert result[0].msg == "old_event"
+
+    def test_archive_expired(self, bus_dir):
+        bus = bus_dir / "bus.jsonl"
+        archive = bus_dir / "bus-archive.jsonl"
+
+        # Write one expired and one active message
+        expired = Message(
+            ts=date.today() - timedelta(days=10),
+            src="eng", dst="*", type="event", msg="expired_event",
+            ttl=3, ack=[],
+        )
+        active = create_message(src="eng", dst="*", type="state", msg="active")
+
+        write_message(bus, expired)
+        write_message(bus, active)
+
+        count = archive_expired(bus, archive)
+        assert count == 1
+
+        # Bus should only have active
+        remaining = read_bus(bus)
+        assert len(remaining) == 1
+        assert remaining[0].msg == "active"
+
+        # Archive should have expired
+        archived = read_bus(archive)
+        assert len(archived) == 1
+        assert archived[0].msg == "expired_event"
+
+    def test_ack_message(self, bus_dir):
+        bus = bus_dir / "bus.jsonl"
+        msg = create_message(src="eng", dst="*", type="state", msg="update")
+        write_message(bus, msg)
+
+        count = ack_message(bus, "finance", lambda m: m.msg == "update")
+        assert count == 1
+
+        msgs = read_bus(bus)
+        assert "finance" in msgs[0].ack
+
+
+# ─── SYN/FIN Protocol ───────────────────────────────────────────────
+
+
+class TestSynProtocol:
+    def test_syn_empty_bus(self, bus_dir):
+        result = syn(bus_dir / "bus.jsonl", "engineering")
+        assert result.pending == []
+        assert result.stale == []
+        assert result.total_bus_messages == 0
+
+    def test_syn_finds_pending(self, bus_dir):
+        bus = bus_dir / "bus.jsonl"
+        msg = create_message(src="ops", dst="*", type="alert", msg="deadline_friday")
+        write_message(bus, msg)
+
+        result = syn(bus, "engineering")
+        assert len(result.pending) == 1
+        assert result.pending[0].msg == "deadline_friday"
+
+    def test_syn_report_format(self):
+        result = SynResult(
+            pending=[
+                Message(ts=date.today(), src="ops", dst="*", type="alert",
+                        msg="deadline", ttl=5, ack=[]),
+            ],
+            stale=[],
+            total_bus_messages=1,
+        )
+        report = syn_report(result, "engineering")
+        assert "[HERMES]" in report
+        assert "1 pending" in report
+        assert "deadline" in report
+
+
+class TestFinProtocol:
+    def test_fin_writes_messages(self, bus_dir):
+        bus = bus_dir / "bus.jsonl"
+        actions = [
+            FinAction(dst="*", type="state", msg="sprint_completed"),
+            FinAction(dst="finance", type="data_cross", msg="costs_q1_5000usd@internal"),
+        ]
+        written = fin(bus, "engineering", actions)
+        assert len(written) == 2
+
+        msgs = read_bus(bus)
+        assert len(msgs) == 2
+        assert msgs[0].src == "engineering"
+        assert msgs[1].dst == "finance"
+
+    def test_fin_no_actions(self, bus_dir):
+        bus = bus_dir / "bus.jsonl"
+        written = fin(bus, "engineering", [])
+        assert written == []
+
+    def test_fin_none_actions(self, bus_dir):
+        bus = bus_dir / "bus.jsonl"
+        written = fin(bus, "engineering", None)
+        assert written == []
+
+
+# ─── Sample Bus Validation ──────────────────────────────────────────
+
+
+class TestSampleBus:
+    """Validate the example bus-sample.jsonl against the spec."""
+
+    def test_sample_bus_is_valid(self):
+        sample_path = Path(__file__).parent.parent.parent.parent / "examples" / "bus-sample.jsonl"
+        if not sample_path.exists():
+            pytest.skip("bus-sample.jsonl not found")
+
+        msgs = read_bus(sample_path)
+        assert len(msgs) == 10  # 10 representative messages
+        for msg in msgs:
+            assert msg.src != ""
+            assert msg.msg != ""
+            assert msg.ttl > 0

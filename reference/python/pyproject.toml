@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "hermes-protocol"
+version = "0.1.0-alpha"
+description = "Reference implementation of the HERMES inter-agent communication protocol"
+readme = {text = "HERMES reference implementation. See https://github.com/dereyesm/hermes", content-type = "text/plain"}
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    {name = "HERMES Contributors"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["hermes*"]

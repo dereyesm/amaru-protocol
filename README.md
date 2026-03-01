@@ -62,7 +62,7 @@ HERMES uses an RFC-like standards process with three tracks, each mapping to a r
 | **ATR** | ITU-T Rec | Architecture & models | ATR-X.200: Reference Model |
 | **AES** | IEEE Std | Implementation standards | AES-802.1Q: Namespace Isolation |
 
-### Core Standards (Phase 0)
+### Core Standards (Phase 0 — Implemented)
 
 | Standard | Title | Status |
 |----------|-------|--------|
@@ -74,7 +74,16 @@ HERMES uses an RFC-like standards process with three tracks, each mapping to a r
 | [ARC-1918](spec/ARC-1918.md) | Private Spaces & Firewall | IMPLEMENTED |
 | [ATR-Q.700](spec/ATR-Q700.md) | Out-of-Band Signaling | INFORMATIONAL |
 
-Full index: **[spec/INDEX.md](spec/INDEX.md)**
+### Next: The Agora (Phase 1 — In Progress)
+
+| Standard | Title | Status |
+|----------|-------|--------|
+| [ARC-3022](spec/ARC-3022.md) | Agent Gateway Protocol | DRAFT |
+| ARC-2606 | Agent Profile & Discovery | PLANNED |
+| ARC-4861 | Cross-Clan Attestation | PLANNED |
+| AES-2040 | Agent Visualization | PLANNED |
+
+Full index: **[spec/INDEX.md](spec/INDEX.md)** | Research agenda: **[docs/RESEARCH-AGENDA.md](docs/RESEARCH-AGENDA.md)**
 
 ## Architecture at a Glance
 
@@ -105,6 +114,37 @@ Full index: **[spec/INDEX.md](spec/INDEX.md)**
 - **Firewalls** prevent credentials and tools from crossing namespace boundaries
 - **Humans** approve all cross-namespace data movement
 
+## The Agora: Inter-Clan Social Layer
+
+Phase 0 handles communication **within** a clan. The next step: communication **between** clans.
+
+```
+┌─────────────────┐                          ┌─────────────────┐
+│   Clan Alpha    │                          │   Clan Beta     │
+│                 │                          │                 │
+│  namespaces     │     ┌─────────────┐      │  namespaces     │
+│  bus.jsonl      │◄───►│   AGORA     │◄────►│  bus.jsonl      │
+│  agents         │     │  (public)   │      │  agents         │
+│                 │     │  profiles   │      │                 │
+│  ┌───────────┐  │     │  quests     │      │  ┌───────────┐  │
+│  │  GATEWAY  │──┼────►│  attest.    │◄─────┼──│  GATEWAY  │  │
+│  │  (NAT)    │  │     └─────────────┘      │  │  (NAT)    │  │
+│  └───────────┘  │                          │  └───────────┘  │
+└─────────────────┘                          └─────────────────┘
+```
+
+The **Gateway** ([ARC-3022](spec/ARC-3022.md)) acts as a NAT at the clan boundary:
+- **Identity translation** — internal agent names are never exposed
+- **Outbound filtering** — only authorized data leaves the clan
+- **Inbound validation** — external messages are verified before reaching the internal bus
+- **Attestation** — clans certify each other's agents, building verifiable reputation
+
+**Two complementary metrics**:
+- **Bounty** — internal reputation (XP, precision, impact). Only your clan sees it.
+- **Resonance** — external reputation (attestations from other clans). The world sees it.
+
+See [docs/USE-CASES.md](docs/USE-CASES.md) for real-world scenarios.
+
 ## Key Design Principles
 
 1. **File-based** — No servers, no databases. Just files any tool can read/write
@@ -112,7 +152,8 @@ Full index: **[spec/INDEX.md](spec/INDEX.md)**
 3. **Human-in-the-loop** — HERMES informs, humans decide
 4. **Firewall by default** — Namespaces are isolated. Crossings require explicit rules
 5. **Signaling, not data** — The bus carries control messages, not payloads
-6. **Open standard** — Anyone can implement, extend, or fork
+6. **Sovereignty first** — Your clan, your data, your rules. The Agora connects but never controls
+7. **Open standard** — Anyone can implement, extend, or fork
 
 ## Reference Implementation
 
@@ -131,10 +172,25 @@ See [reference/python/](reference/python/) for details.
 ```
 hermes/
 ├── spec/              # Formal standards (ARC, ATR, AES)
-├── docs/              # Guides, architecture, glossary
-├── reference/python/  # Reference implementation
+│   ├── ARC-0001.md    #   Architecture (meta-standard)
+│   ├── ARC-0791.md    #   Addressing & Routing
+│   ├── ARC-0793.md    #   Reliable Transport
+│   ├── ARC-1918.md    #   Private Spaces & Firewall
+│   ├── ARC-3022.md    #   Agent Gateway Protocol (DRAFT)
+│   ├── ARC-5322.md    #   Message Format
+│   ├── ATR-Q700.md    #   Out-of-Band Signaling
+│   ├── ATR-X200.md    #   Reference Model
+│   └── INDEX.md       #   Full standards index (30 planned)
+├── docs/              # Guides and documentation
+│   ├── ARCHITECTURE.md
+│   ├── QUICKSTART.md
+│   ├── AGENT-STRUCTURE.md
+│   ├── GLOSSARY.md
+│   ├── USE-CASES.md
+│   └── RESEARCH-AGENDA.md
+├── reference/python/  # Reference implementation (46 tests)
 ├── examples/          # Sample bus, routes, configs
-├── .github/           # Issue templates for proposals
+├── CHANGELOG.md       # Release notes
 ├── CONTRIBUTING.md    # How to contribute
 └── LICENSE            # MIT
 ```

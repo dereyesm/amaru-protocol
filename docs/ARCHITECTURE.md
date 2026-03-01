@@ -215,6 +215,71 @@ A typical HERMES deployment:
         └── router.md
 ```
 
+## Gateway: The Clan Boundary
+
+When a clan wants to connect with other clans on the Agora (public inter-clan network), it deploys a **Gateway** — a NAT-like component at the boundary.
+
+```
+┌──────────────────────────────────────────────────────┐
+│                  CLAN (private)                       │
+│                                                      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐           │
+│  │   eng    │  │   ops    │  │ finance  │           │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘           │
+│       └──────────────┼──────────────┘                │
+│                      │                               │
+│               ┌──────┴──────┐                        │
+│               │  bus.jsonl   │                        │
+│               └──────┬──────┘                        │
+│                      │                               │
+│            ┌─────────┴─────────┐                     │
+│            │     GATEWAY       │  ← ARC-3022         │
+│            │  ┌─────────────┐  │                     │
+│            │  │ NAT         │  │  Internal names     │
+│            │  │ (translate) │  │  → public aliases    │
+│            │  ├─────────────┤  │                     │
+│            │  │ Outbound    │  │  Default-deny.       │
+│            │  │ (filter)    │  │  Only approved data  │
+│            │  ├─────────────┤  │  leaves.             │
+│            │  │ Inbound     │  │                     │
+│            │  │ (validate)  │  │  Verify source,      │
+│            │  │             │  │  check rate limits.  │
+│            │  └─────────────┘  │                     │
+│            └────────┬──────────┘                     │
+└─────────────────────┼────────────────────────────────┘
+                      │
+         ═════════════╪════════════════
+                      │
+               ┌──────┴──────┐
+               │    AGORA    │  Public directory
+               │  (profiles, │  of clans, agents,
+               │   quests,   │  attestations,
+               │   attest.)  │  and Resonance.
+               └─────────────┘
+```
+
+**What the gateway exposes**: Public profiles (alias, capabilities, Resonance score).
+
+**What the gateway protects**: Internal names, bus messages, Bounty/XP, credentials, namespace topology, memory, session logs.
+
+See [ARC-3022](../spec/ARC-3022.md) for the full specification.
+
+## Dual Reputation Model
+
+```
+  INTERNAL (Clan only)              EXTERNAL (Agora)
+  ┌─────────────────┐              ┌─────────────────┐
+  │     BOUNTY      │              │   RESONANCE     │
+  │                 │              │                 │
+  │  XP × precision │   Gateway   │  Σ attestations │
+  │  × impact       │─────────────│  × recency      │
+  │                 │  translates  │  × diversity    │
+  │  Computed by    │  but never   │                 │
+  │  Dojo/operator  │  exposes     │  Computed from  │
+  │                 │  Bounty      │  external sigs  │
+  └─────────────────┘              └─────────────────┘
+```
+
 ## Related Specifications
 
 | Spec | Title | What it covers |
@@ -225,4 +290,5 @@ A typical HERMES deployment:
 | [ARC-0793](../spec/ARC-0793.md) | Reliable Transport | SYN/FIN/ACK |
 | [ARC-0791](../spec/ARC-0791.md) | Addressing & Routing | Namespaces and routes |
 | [ARC-1918](../spec/ARC-1918.md) | Private Spaces | Firewall model |
+| [ARC-3022](../spec/ARC-3022.md) | Agent Gateway | NAT, filtering, Agora connection |
 | [ATR-Q.700](../spec/ATR-Q700.md) | OOB Signaling | Design philosophy |

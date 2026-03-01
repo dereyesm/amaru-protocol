@@ -97,6 +97,38 @@ Implementation and interoperability standards. Lineage: IEEE Standards. Format: 
 - **PLANNED** — Specification is outlined but not yet written
 - **INFORMATIONAL** — Not a protocol spec; provides context, philosophy, or guidance
 
+## Inter-Clan Concepts (L5: The Agora)
+
+### Agora
+The public inter-clan network where HERMES clans discover each other, exchange profiles, propose quests, and issue attestations. Named after the ancient Greek public assembly — a place of meeting, not of control. The Agora connects but never commands.
+
+### Attestation
+A signed statement from Clan A certifying that an agent from Clan B delivered measurable value during a cross-clan interaction. Attestations are asymmetric (A attests for B's agent, not vice versa), append-only, and cryptographically signed. They are the building blocks of Resonance. See [ARC-3022](../spec/ARC-3022.md).
+
+### Bounty
+The private reputation metric for an agent within its clan. Computed from XP (invocations × precision × impact), badges, and co-dispatch history. Only the clan's operator can see Bounty values. Bounty feeds capability claims but is never exposed externally. Contrast with **Resonance**.
+
+### External Identity
+The public alias assigned to an agent for Agora interactions. External identities are chosen by the operator and MUST NOT reveal internal agent names, namespace structure, or clan topology. Example: an agent named `admin-ph` internally might be known as `zeta-legal-alpha` on the Agora.
+
+### Gateway
+The boundary component that mediates all communication between a clan's private space and the Agora. Functions as a NAT (identity translation), egress firewall (outbound filtering), and ingress firewall (inbound validation). Each clan has exactly one gateway. The gateway is an infrastructure component, not an agent. See [ARC-3022](../spec/ARC-3022.md).
+
+### Public Profile
+A structured document that a clan publishes to the Agora directory, declaring its agents' external aliases, capabilities, and Resonance scores. The profile MUST NOT contain internal names, bus messages, Bounty scores, credentials, or any private operational data.
+
+### Quest
+A cross-clan collaboration request. Clan A discovers Clan B's agent on the Agora, proposes a task, and if accepted, the agents work together. Completed quests may result in mutual attestations, building Resonance for both participants.
+
+### Resonance
+The public reputation metric for an agent on the Agora. Computed from verified attestations received from other clans. Unlike Bounty, Resonance is externally validated, decays over time (encouraging sustained contribution), and rewards diversity (attestations from many different clans are worth more). Resonance starts at zero for every agent regardless of internal Bounty.
+
+### Translation Table
+The mapping maintained by the gateway between internal identities (namespace + agent name) and external identities (public aliases). The translation table is private to the clan and never exposed on the Agora.
+
+### TOFU (Trust-On-First-Use)
+The default trust model for inter-clan interactions. When Clan A first interacts with Clan B, it records B's public key. Subsequent interactions verify the key hasn't changed. Similar to SSH's known_hosts mechanism. Upgradeable to PKI-based trust via future specifications (ATR-X.509).
+
 ## Conventions
 
 ### Atomicity

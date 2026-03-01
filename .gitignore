@@ -32,6 +32,10 @@ tokens*.json
 bus.jsonl
 bus-archive.jsonl
 
+# Claude Code — local config, skills, personal data
+.claude/
+CLAUDE.md
+
 # Test / coverage
 .pytest_cache/
 .coverage

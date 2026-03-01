@@ -31,6 +31,7 @@ Core protocol standards governing message formats, transport, addressing, and se
 | ARC-2818 | Secure Bus Transport | RFC 2818 (HTTPS) | PLANNED | Security |
 | [ARC-5322](ARC-5322.md) | Message Format | RFC 5322 (IMF) | IMPLEMENTED | Core |
 | ARC-6455 | Real-Time Bus Extensions | RFC 6455 (WebSocket) | PLANNED | Extension |
+| [ARC-3022](ARC-3022.md) | Agent Gateway Protocol | RFC 3022 (NAT) | DRAFT | Extension |
 | ARC-7231 | Agent Semantics | RFC 7231 (HTTP Semantics) | PLANNED | Extension |
 | ARC-7519 | Message Authentication | RFC 7519 (JWT) | PLANNED | Security |
 | ARC-7540 | Multiplexed Bus Channels | RFC 7540 (HTTP/2) | PLANNED | Extension |
@@ -63,6 +64,7 @@ Implementation standards for interoperability, isolation, and quality of service
 | AES-802.11 | Wireless/Ephemeral Agents | 802.11 (WiFi) | PLANNED | Extension |
 | AES-1588 | Bus Timestamp Precision | 1588 (PTP) | PLANNED | Extension |
 | AES-2030 | Ethical Agent Communication | 2030 (Ethical AI) | PLANNED | Philosophy |
+| AES-2040 | Agent Visualization Standard | — (Original) | PLANNED | Extension |
 
 ---
 

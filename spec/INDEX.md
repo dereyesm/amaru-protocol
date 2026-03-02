@@ -21,7 +21,7 @@ Core protocol standards governing message formats, transport, addressing, and se
 |--------|-------|-------------|--------|------|
 | [ARC-0001](ARC-0001.md) | HERMES Architecture | Original | IMPLEMENTED | Core |
 | ARC-0020 | Agent Lifecycle Management | RFC 20 (ASCII) | PLANNED | Core |
-| ARC-0768 | Namespace Discovery Protocol | RFC 768 (UDP) | PLANNED | Extension |
+| [ARC-0768](ARC-0768.md) | Datagram & Reliable Message Semantics | RFC 768 (UDP) | IMPLEMENTED | Core |
 | [ARC-0791](ARC-0791.md) | Addressing & Routing | RFC 791 (IP) | IMPLEMENTED | Core |
 | [ARC-0793](ARC-0793.md) | Reliable Transport | RFC 793 (TCP) | IMPLEMENTED | Core |
 | ARC-1035 | Namespace Resolution | RFC 1035 (DNS) | PLANNED | Extension |

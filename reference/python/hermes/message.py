@@ -36,6 +36,13 @@ DEFAULT_TTLS: dict[str, int] = {
     "dojo_event": 3,
 }
 
+# ARC-0768: Transport mode classification
+RELIABLE_TYPES = frozenset({"request", "dispatch", "data_cross"})
+
+# ARC-0768: Correlation ID patterns
+CID_PATTERN = re.compile(r"\[CID:([a-zA-Z0-9\-]{4,12})\]$")
+RE_PATTERN = re.compile(r"\[RE:([a-zA-Z0-9\-]{4,12})\]$")
+
 # ARC-0791: Namespace naming rules
 _NAMESPACE_RE = re.compile(r"^[a-z][a-z0-9\-]{0,62}$")
 
@@ -226,6 +233,27 @@ def main() -> None:
         sys.exit(1)
 
     print(f"{total}/{total} messages valid.", file=sys.stderr)
+
+
+def extract_cid(msg: str) -> str | None:
+    """Extract a Correlation ID from a message payload per ARC-0768."""
+    match = CID_PATTERN.search(msg)
+    return match.group(1) if match else None
+
+
+def extract_re(msg: str) -> str | None:
+    """Extract a Resolution Tag from a message payload per ARC-0768."""
+    match = RE_PATTERN.search(msg)
+    return match.group(1) if match else None
+
+
+def transport_mode(msg_type: str) -> str:
+    """Return the transport mode for a message type per ARC-0768.
+
+    Returns "REL" for reliable types (request, dispatch, data_cross),
+    "DGM" for datagram types (state, event, alert, dojo_event).
+    """
+    return "REL" if msg_type in RELIABLE_TYPES else "DGM"
 
 
 if __name__ == "__main__":

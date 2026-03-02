@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
-from .bus import filter_for_namespace, find_stale, read_bus, write_message
+from .bus import filter_for_namespace, find_stale, find_unresolved, read_bus, write_message
 from .message import Message, create_message
 
 
@@ -21,6 +21,11 @@ class SynResult:
     pending: list[Message]
     stale: list[Message]
     total_bus_messages: int
+    unresolved: list[Message] = None
+
+    def __post_init__(self):
+        if self.unresolved is None:
+            self.unresolved = []
 
 
 def syn(bus_path: str | Path, namespace: str) -> SynResult:
@@ -37,10 +42,13 @@ def syn(bus_path: str | Path, namespace: str) -> SynResult:
     pending = filter_for_namespace(messages, namespace)
     stale = find_stale(pending, threshold_days=3)
 
+    unresolved = find_unresolved(messages)
+
     return SynResult(
         pending=pending,
         stale=stale,
         total_bus_messages=len(messages),
+        unresolved=unresolved,
     )
 
 
@@ -60,6 +68,12 @@ def syn_report(result: SynResult, namespace: str) -> str:
         for m in result.stale:
             age = (date.today() - m.ts).days
             lines.append(f"  [{m.src}] {m.msg} ({age}d old)")
+
+    if result.unresolved:
+        lines.append(f"[HERMES] WARNING: {len(result.unresolved)} UNRESOLVED reliable message(s):")
+        for m in result.unresolved:
+            age = (date.today() - m.ts).days
+            lines.append(f"  [{m.src}] {m.msg} ({age}d, ACKED but no resolution)")
 
     lines.append(f"[HERMES] Bus total: {result.total_bus_messages} active message(s).")
     return "\n".join(lines)

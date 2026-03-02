@@ -9,7 +9,14 @@ import json
 from datetime import date, timedelta
 from pathlib import Path
 
-from .message import Message, ValidationError, validate_message
+from .message import (
+    Message,
+    ValidationError,
+    extract_cid,
+    extract_re,
+    transport_mode,
+    validate_message,
+)
 
 
 def read_bus(bus_path: str | Path) -> list[Message]:
@@ -158,3 +165,106 @@ def ack_message(
                 f.write(m.to_jsonl() + "\n")
 
     return acked
+
+
+def find_unresolved(messages: list[Message]) -> list[Message]:
+    """Find REL messages that are ACKed but not yet resolved (ARC-0768).
+
+    Returns messages where:
+    - type is REL (request, dispatch, data_cross)
+    - msg contains [CID:X]
+    - ack array is non-empty (someone has seen it)
+    - no companion [RE:X] message exists on the bus
+    - TTL has NOT expired
+    """
+    today = date.today()
+    # Build set of resolved CIDs
+    resolved_cids: set[str] = set()
+    for m in messages:
+        re_token = extract_re(m.msg)
+        if re_token:
+            resolved_cids.add(re_token)
+
+    unresolved = []
+    for m in messages:
+        if transport_mode(m.type) != "REL":
+            continue
+        cid = extract_cid(m.msg)
+        if cid is None:
+            continue
+        if not m.ack:
+            continue
+        if cid in resolved_cids:
+            continue
+        if (today - m.ts).days > m.ttl:
+            continue
+        unresolved.append(m)
+
+    return unresolved
+
+
+def find_expired_unresolved(messages: list[Message]) -> list[Message]:
+    """Find REL messages that expired without resolution (ARC-0768).
+
+    Returns messages where:
+    - type is REL
+    - msg contains [CID:X] with no companion [RE:X]
+    - TTL HAS expired
+    """
+    today = date.today()
+    resolved_cids: set[str] = set()
+    for m in messages:
+        re_token = extract_re(m.msg)
+        if re_token:
+            resolved_cids.add(re_token)
+
+    expired_unresolved = []
+    for m in messages:
+        if transport_mode(m.type) != "REL":
+            continue
+        cid = extract_cid(m.msg)
+        if cid is None:
+            continue
+        if cid in resolved_cids:
+            continue
+        if (today - m.ts).days <= m.ttl:
+            continue
+        expired_unresolved.append(m)
+
+    return expired_unresolved
+
+
+def correlate(messages: list[Message], cid: str) -> dict:
+    """Find the request/response pair for a given CID (ARC-0768).
+
+    Returns {"request": Message | None, "response": Message | None}.
+    """
+    result: dict = {"request": None, "response": None}
+    for m in messages:
+        if extract_cid(m.msg) == cid:
+            result["request"] = m
+        if extract_re(m.msg) == cid:
+            result["response"] = m
+    return result
+
+
+def generate_escalation(original: Message) -> Message:
+    """Create an escalation alert for an unresolved REL message (ARC-0768).
+
+    The alert is addressed to the original sender so they know
+    their request was not resolved before expiry.
+    """
+    from .message import create_message
+
+    prefix = f"UNRESOLVED:{original.type}:"
+    # Truncate original msg to fit within 120 chars
+    max_payload = 120 - len(prefix)
+    truncated = original.msg[:max_payload]
+    payload = prefix + truncated
+
+    return create_message(
+        src=original.src,
+        dst="*",
+        type="alert",
+        msg=payload,
+    )

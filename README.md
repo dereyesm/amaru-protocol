@@ -164,16 +164,16 @@ Deploy your own HERMES instance: **[Quickstart Guide](docs/QUICKSTART.md)**
                      │
           ┌──────────┼──────────┐
           │          │          │
-    ┌─────┴──┐ ┌────┴───┐ ┌───┴─────┐
-    │ eng    │ │ ops    │ │ finance │   Namespaces
-    │        │ │        │ │         │   (isolated)
-    └───┬────┘ └───┬────┘ └────┬────┘
-        │          │           │
-        └──────────┴───────────┘
-                   │
-            ┌──────┴──────┐
-            │  bus.jsonl   │  The shared bus
-            │  (JSONL)     │  (signaling only)
+    ┌─────┴──┐  ┌────┴───┐  ┌───┴─────┐
+    │ eng    │  │ ops    │  │ finance │   Namespaces
+    │        │  │        │  │         │   (isolated)
+    └───┬────┘  └───┬────┘  └────┬────┘
+        │           │            │
+        └───────────┴────────────┘
+                    │
+            ┌───────┴─────┐
+            │  bus.jsonl  │  The shared bus
+            │  (JSONL)    │  (signaling only)
             └─────────────┘
 ```
 
@@ -216,6 +216,18 @@ Inter-clan communication uses the **Gateway** ([ARC-3022](spec/ARC-3022.md)) as 
 ```
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full architecture document.
+
+---
+
+## Visual Documentation
+
+Protocol flows explained with diagrams -- sequence diagrams (message-by-message), use case flows (customer journeys), and architecture views. All rendered natively by GitHub using [Mermaid](https://mermaid.js.org/).
+
+**[Browse all diagrams](docs/diagrams/README.md)**
+
+Highlights:
+- **[Message Lifecycle](docs/diagrams/seq-5322-message-lifecycle.md)** -- how a message is created, validated, written, consumed, and archived
+- **[Sovereign Clan Setup](docs/diagrams/uc-01-sovereign-clan-setup.md)** -- step-by-step setup with zero infrastructure
 
 ---
 

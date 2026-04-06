@@ -739,7 +739,7 @@ def create_server():
             return [types.TextContent(type="text", text=f"Unknown tool: {name}")]
 
         try:
-            result = handler(arguments)
+            result = handler(arguments)  # type: ignore[assignment]
             return [types.TextContent(type="text", text=json.dumps(result, indent=2, default=str))]
         except Exception as e:
             return [types.TextContent(type="text", text=json.dumps({"error": str(e)}))]

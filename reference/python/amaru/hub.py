@@ -1154,7 +1154,7 @@ class HubServer:
                     # the remote hub from seeing empty routing when our peers
                     # haven't connected yet (ARC-0370 §4.4).
                     local_peers_set = set(self.connections.connected_clan_ids())
-                    for pid in self._peers:
+                    for pid in self.peers:
                         if pid != self._hub_id:
                             local_peers_set.add(pid)
                     local_peers = sorted(local_peers_set - {link.hub_id})

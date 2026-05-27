@@ -2,7 +2,7 @@
 
 | Field | Value |
 |-------|-------|
-| From | danielreyesma@gmail.com (via MomoshoD) |
+| From | DANI clan (bilateral channel) |
 | To | Jeimmy Gómez (Clan JEI) |
 | Date | 2026-03-16 |
 | Ref | QUEST-003-ECDHE-FORWARD-SECRECY |
